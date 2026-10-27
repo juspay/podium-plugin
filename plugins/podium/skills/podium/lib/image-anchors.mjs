@@ -7,7 +7,7 @@
  * one anchor, with only the subject clause varying, reads as a set.
  *
  * The palette is the anchor. Its first colour is the ground the art is painted on, and it
- * must be the colour of the SURFACE the picture lands on — unless the picture is a
+ * must be the colour of the SURFACE the picture lands on, unless the picture is a
  * transparent cut-out, which has no ground at all. Lettering is banned outright:
  * generated text looks right at a glance and is garbled up close.
  */
@@ -15,14 +15,11 @@
 /**
  * What kind of picture. The kind decides the whole preamble, because a flat illustration,
  * a lit 3D object and a photograph are not the same instruction with different words:
- *   `art`     flat illustration — shapes, no light, no texture
- *   `render`  a 3D object or scene — glass, metal, light, depth: the hero object a deck
- *             recurs to (an iridescent orb, a product floating in its own glow)
- *   `photo`   a photograph — real light, real materials, a lens
+ *   `art`     flat illustration, shapes, no light, no texture
+ *   `render`  a 3D object or scene, materials, light, depth: the hero object a deck
+ *             recurs to, made of what its subject is made of
+ *   `photo`   a photograph, real light, real materials, a lens
  *   `logo`    one reducible mark
- * Until 2026-09-30 there was only `art`, and it banned gradients, shadows and photographic
- * texture outright — so the lit objects and photographs the decks people point at as the
- * standard were not something this could make at all.
  */
 export const ANCHOR_KINDS = ['art', 'render', 'photo', 'logo'];
 
@@ -33,7 +30,7 @@ const NO_LETTERS = 'ABSOLUTELY NO text, letters, numbers, labels, logos or lette
 
 /**
  * The style preamble for one kind. `register` is the deck's own mood in a few words; with
- * none, the picture is described only by its kind and palette — there is no house style to
+ * none, the picture is described only by its kind and palette; there is no house style to
  * fall back to, because a default mood is how every deck came out the same.
  * `transparent` asks for a cut-out: the object alone, no ground, so it sits on whatever
  * the slide is painted with.
@@ -58,7 +55,7 @@ export function styleAnchor(kind, { colours, register = '', transparent = false 
     return [
       `A high-end 3D render: the key visual of a presentation deck.${mood}`,
       `The colours are ${colours.join(', ')}; light and reflections may run between them, and no other hue may appear.`,
-      'Physically real materials — glass, chrome, soft plastic, light itself — with studio lighting, depth, refraction and glow.',
+      'Physically real materials, the ones the subject is made of, with studio lighting and depth.',
       'One subject, with presence; nothing incidental around it.',
       cutout ?? `Set on a plain ${colours[0]} ground that the render fades into.`,
       NO_LETTERS

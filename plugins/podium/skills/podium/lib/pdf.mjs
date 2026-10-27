@@ -2,7 +2,10 @@
 /**
  * The deck as a PDF, one slide per page.
  *
- *   node lib/pdf.mjs "<share-or-stage-url>" deck.pdf
+ *   node lib/pdf.mjs "<share-url>" deck.pdf
+ *
+ * Needs playwright in the deck folder (`npm i playwright`); it drives the Chrome already
+ * on this machine.
  *
  * Almost every deck gets emailed eventually, so this is not a nicety. Two things about it
  * are easy to get wrong and silent when you do:
@@ -16,11 +19,17 @@
  *   `?still=1` freezes every reveal. Without it the capture lands mid-transition and
  *   half the blocks print at whatever opacity they had reached.
  *
- * Use a SHARE url (/d/<id>) unless the browser is signed in — the stage at /p/… is behind
+ * Use a SHARE url (/d/<id>) unless the browser is signed in: the stage at /p/… is behind
  * the account, and an unauthenticated capture of it produces a login page with no slides
  * in the DOM at all.
  */
-import { chromium } from 'playwright';
+let chromium;
+try {
+  ({ chromium } = await import('playwright'));
+} catch {
+  console.error('pdf.mjs needs playwright: run `npm i playwright` in the deck folder (it uses the Chrome on this machine).');
+  process.exit(1);
+}
 
 const [url, out = 'deck.pdf'] = process.argv.slice(2);
 if (!url) {
@@ -38,13 +47,13 @@ page.on('requestfailed', (r) => missing.push(r.url().slice(0, 90)));
 await page.goto(still, { waitUntil: 'networkidle', timeout: 90_000 });
 await page
   .waitForFunction(() => document.documentElement.hasAttribute('data-podium-ready'), null, { timeout: 60_000 })
-  .catch(() => console.error('!! fonts never settled — the PDF may be set in a fallback face'));
+  .catch(() => console.error('!! fonts never settled: the PDF may be set in a fallback face'));
 
 const slides = await page.evaluate(() => document.querySelectorAll('.slide').length);
 if (!slides) {
   console.error(
-    'no slides in the page. If this is a /p/ stage URL, the browser is not signed in — ' +
-    'publish with a visibility and use the /d/ share link instead.'
+    'no slides in the page. If this is a /p/ stage URL, the browser is not signed in, ' +
+    'publish with visibility: "unlisted" and use the /d/ share link instead.'
   );
   await browser.close();
   process.exit(1);
@@ -54,5 +63,5 @@ await page.pdf({ path: out, preferCSSPageSize: true, printBackground: true });
 await browser.close();
 
 if (missing.length) console.error(`!! ${missing.length} assets failed to load:\n  ${[...new Set(missing)].slice(0, 5).join('\n  ')}`);
-console.error(`${out} — ${slides} pages`);
-console.error('If it is large, the images are the reason: compress the plates before upload_media.');
+console.error(`${out}: ${slides} pages`);
+console.error('If it is large, the pictures are the reason: compress them before upload_media.');

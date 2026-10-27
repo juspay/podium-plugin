@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Publish a page — one HTML document — to Podium, and print where to look at it.
+ * Publish a page (one HTML document) to Podium, and print where to look at it.
  *
  *   node lib/page.mjs page.html --id closing-note --project fasttrack [--title "…"]
  *                     [--subtitle "…"] [--visibility unlisted] [--embed "example.org"]
@@ -35,9 +35,9 @@ const result = await call('publish', {
   embed: flag('--embed')
 });
 
-console.error(`published page ${result.published} v${result.version} — ${(Buffer.byteLength(html) / 1024).toFixed(0)}KB`);
-for (const w of result.warnings ?? []) console.error(`  ${w.level.padEnd(5)} ${w.at} — ${w.says}${w.fix ? `\n        fix: ${w.fix}` : ''}`);
+console.error(`published page ${result.published} v${result.version}, ${(Buffer.byteLength(html) / 1024).toFixed(0)}KB`);
+for (const w of result.warnings ?? []) console.error(`  ${w.level.padEnd(5)} ${w.at}: ${w.says}${w.fix ? `\n        fix: ${w.fix}` : ''}`);
 if (!result.warnings?.length) console.error('  no warnings');
 console.error(`\n  look   ${result.look}\n  stage  ${result.stage}\n  share  ${result.share}\n`);
-if (result.embed) console.error(`  embed  for ${Array.isArray(result.embed.sites) ? result.embed.sites.join(', ') : result.embed.sites} — paste this into the website:\n\n${result.embed.code}\n`);
+if (result.embed) console.error(`  embed  for ${Array.isArray(result.embed.sites) ? result.embed.sites.join(', ') : result.embed.sites}. Paste this into the website:\n\n${result.embed.code}\n`);
 console.log(result.look);

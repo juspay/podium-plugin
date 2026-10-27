@@ -7,7 +7,7 @@ sharing.
 
 ## Contents
 
-- Ask for inspiration first
+- Invent it, no references
 - One document, both widths
 - The shape of a good page
 - Motion
@@ -19,37 +19,23 @@ sharing.
 → a deck. When the person asks for "a page", "a one-pager", "a microsite", "a web report"
 or "something like a landing page", it is a page.
 
-A page is **one HTML document** — its own CSS and its own small scripts inside it. It is
+A page is **one HTML document**: its own CSS and its own small scripts inside it. It is
 not blocks on a plane: a page has to reflow from a 390px phone to a 1440px desktop, and only
 real web layout does that. Everything in SKILL.md about the brief, the design language, the
 critic and the judge still holds; this file is what is different.
 
-## Ask for inspiration first
+## Invent it, no references
 
-Before anything is built, ask for something to point at — the same as for a deck, and more
-so, because a page with no reference drifts to the same generic landing page every time:
+Never ask for a reference, and lift nothing from their earlier pages; one they
+give you is followed (`references/asking.md`, *When they bring a reference*).
 
-> Is there a page, a site or a picture you want this to feel like? A Pinterest board or pin,
-> a Behance or Dribbble shot, an Awwwards site, a screenshot, a link — anything. Two is
-> better than one. Nothing to hand? Open one of these and paste back two you like:
->
-> 📌 Pinterest — <subject>: [click here](…)
-> 🎨 Behance — <subject>: [click here](…)
-> 🏀 Dribbble — <subject>: [click here](…)
->
-> Or say "you pick".
-
-The links are searched for the subject, as SKILL.md's *References* makes them
-(`node lib/references.mjs --ask "…"`). Read what comes back for its decisions: the type and
-its scale, how much air, how sections are divided, the one signature move.
-
-**When there is no reference,** say so plainly before you build, in one line:
-
-> With no reference I'll design it from the story and what it is for — expect something
-> solid but more generic. Send a reference any time and I'll restyle it.
-
-Then design from the story: the subject's own material, as `inventing-a-design-language.md`
-describes. Do not quietly build the generic page and present it as considered.
+Design from the story and the subject's own world, as `inventing-a-design-language.md`
+describes, and show **three or four directions** before building the whole page: each the
+top of the page, the hero and the first section, at 1440 and at 390, in its own world,
+colour, faces and components, published as separate unlisted pages and looked at with eyes.
+For a named client, two of them are in its own brand (`inventing-a-design-language.md`, *In
+their brand*). Judge each before they see it and rebuild any under 4 (`judge.md`, *The
+directions round*). They pick from the pictures.
 
 ## One document, both widths
 
@@ -64,7 +50,7 @@ It is built once and holds at every width. The checks below are what eyes measur
   parent with `overflow: hidden`.
 - **Phones get real sizes.** Body text 16px or more; nothing under 12px anywhere; links and
   buttons at least 44px tall. A stat that is 140px on a desktop is still the hero on a
-  phone at 64px — let it shrink with `clamp()`, do not hide it.
+  phone at 64px; let it shrink with `clamp()`, do not hide it.
 - **`<meta name="viewport" content="width=device-width, initial-scale=1">`** in the head,
   always. Without it a phone renders a desktop page in miniature.
 
@@ -79,10 +65,10 @@ It is built once and holds at every width. The checks below are what eyes measur
   table, then a picture. Four dense sections in a row is a document, not a page.
 - **One signature move,** repeated: the dividers between sections, a way numbers are set, a
   frame round pictures. Name it in the brief.
-- **A close.** What happens next, who to talk to, the one link — not a footer of everything.
+- **A close.** What happens next, who to talk to, the one link, not a footer of everything.
 
 Faces from Google Fonts (`<link>` in the head; two families, three at most). Colour from the
-subject. The same floor as a deck: one accent with one job, no lorem, real numbers big, body
+subject. From the deck's floor, these hold: one accent with one job, no lorem, real numbers big, body
 text against its ground at 4.5:1 or better.
 
 ## Motion
@@ -93,7 +79,7 @@ by an `IntersectionObserver`. Two rules:
 - **Content is visible without the script.** Add the hidden starting state from the script
   (`document.documentElement.classList.add('js')`, then `.js .reveal { opacity: 0 }`), so a
   page whose script fails is still a page.
-- **Respect `prefers-reduced-motion: reduce`** — no movement, everything shown.
+- **Respect `prefers-reduced-motion: reduce`**: no movement, everything shown.
 
 Marquees, sprites and drawn animation are the page's signature moves when the story wants
 them, and CSS when they can be.
@@ -114,7 +100,7 @@ The page is a file next to its folder, `page.html`.
   publishes it and prints the `look` URL.
 - **Without one (claude.ai chat):** `publish({ kind: "page", id, project, title, html })`.
   Later changes can send only the edit:
-  `publish({ kind: "page", id, patch: [{ find, replace }] })` — each `find` must appear
+  `publish({ kind: "page", id, patch: [{ find, replace }] })`; each `find` must appear
   exactly once in the stored page.
 
 Then look, every time: `look({ id })`, or `node lib/eyes.mjs "<look>"`. You get the page at
@@ -123,7 +109,7 @@ under 12px, faces that never loaded, broken pictures, script errors, sections wi
 Fix the document and publish again.
 
 Then the critic and the judge, as SKILL.md describes, section by section instead of slide by
-slide — and the judge sees both widths.
+slide, and the judge sees both widths.
 
 ## On their own website
 

@@ -7,36 +7,21 @@ How the build loop in `SKILL.md` step 4 actually runs: copying `lib/`, publishin
 - The shape of the work
 - No shell? The program runs on Podium
 - Eyes: nothing to set up
+- Poster and PDF
 
 ## The shape of the work
 
 You write a **program** that emits a deck, run it, publish it, look at the picture, and
-change the program. Not JSON typed by hand — a script, next to the deck, in the repo.
+change the program. Not JSON typed by hand: a script, next to the deck, in the repo.
 
 ```
 build.mjs   →   deck.json   →   publish   →   look at it   →   change build.mjs
 ```
 
-Around that loop sits the part that decides whether it was worth running:
+The order around that loop is SKILL.md's. The program is what makes a deck possible to
+design: the grid becomes arithmetic, a mark becomes a function, and re-running costs nothing.
 
-```
-brief  →  references  →  directions  →  outline  →  build ⟲ look  →  review  →  hand over
-```
-
-Ask first (`references/asking.md`); find something to point at; show two or three
-directions as one slide each and let them pick; agree the argument as a list of slide
-titles; build; then review every slide against a written list before anybody else sees it.
-Only a deck whose look and argument are already settled — by a reference, a house style,
-a named preset, an instalment — skips straight from the brief to the build. Every other
-deck does every step, because each one is minutes and each one it skips is a rebuild.
-
-That loop is the whole method, and the program is not a convenience. It is the thing that
-makes a deck possible to design: the grid becomes arithmetic instead of guesswork, a mark
-becomes a function instead of a shape you typed, and re-running costs nothing so you can
-afford to be wrong six times. A deck typed by hand stops at what a person is willing to
-type, which is roughly four rectangles.
-
-Copy `lib/` next to your deck and start. Copy it with node — `cp -R` stops for a
+Copy `lib/` next to your deck and start. Copy it with node: `cp -R` stops for a
 person's permission every time, and node does not:
 
 ```bash
@@ -46,12 +31,13 @@ node -e "require('fs').cpSync(process.argv[1] + '/lib', 'lib', { recursive: true
 ```js
 import { Deck, text, svg, image, group, grid, publish, poster } from './lib/podium.mjs';
 import { rng, noise, hatch, contours, stipple } from './lib/draw.mjs';
-import { aurora, dusk, spotlight, glow, glass, stars } from './lib/atmosphere.mjs';  // light, in your colours
+// lib/atmosphere.mjs (aurora, dusk, spotlight, glow, glass, stars) lights a dark ground one
+// measured way, import it only when a direction calls for exactly that light
 ```
 
 `node build.mjs` writes and publishes. It finds Podium's token by itself: `PODIUM_TOKEN`
 when set, otherwise the token in Claude Code's own `podium` entry, which is where Settings'
-command puts it. With no token on the machine — the Claude plugin signs in without one —
+command puts it. With no token on the machine (the Claude plugin signs in without one),
 send the program to the `build` tool instead (*No shell? The program runs on Podium*, below); everything else holds.
 Then **look**, with the `look` URL that `publish` returned:
 
@@ -61,9 +47,8 @@ node lib/eyes.mjs "<look-url>" --slides 3,7 # up to six slides full size      �
 ```
 
 It prints the measurements (faces that never loaded, text that overflows, blocks on top of
-each other, pictures that 404) and writes the pictures to `shots/`. **Read the pictures.**
-Every layout bug this project has ever had survived a clean build, a green test run and a
-validator with nothing to say, and died the moment somebody looked at a picture.
+each other, pictures that 404) and writes the pictures to `shots/`. **Read the pictures**: a
+clean build says nothing about how it looks.
 
 ## No shell? The program runs on Podium
 
@@ -105,17 +90,18 @@ No Chrome on the machine, or no machine: Podium's own `look` tool renders the de
 returns the same pictures and measurements. Looking is not optional either way.
 
 `lib/podium.mjs`, `lib/draw.mjs` and `lib/eyes.mjs` need nothing but Node (and, for eyes, the
-Chrome). `lib/look.mjs` and `lib/pdf.mjs`
-drive a browser, so they need two things the others do not: **`npm i playwright` in the
+Chrome). `lib/pdf.mjs` (and the legacy `lib/look.mjs`)
+drive a browser through playwright, so they need two things the others do not: **`npm i playwright` in the
 deck folder** (it is imported, not bundled), and **Google Chrome installed** on the machine.
 They launch the installed Chrome (`channel: 'chrome'`), not Playwright's own Chromium, so a
-bare `npx playwright install` does not help when Chrome is missing — install Chrome itself,
+bare `npx playwright install` does not help when Chrome is missing; install Chrome itself,
 or run `npx playwright install chrome`, which does exactly that.
 
+## Poster and PDF
+
 **When a deck is going behind a link, give it a poster.** A pasted share link with no
-picture is a grey rectangle with a title on it, which is most of the reason people stop
-pasting them. Write the cover to a file first, with `node lib/eyes.mjs "<look-url>" --slides 1`
-(→ `shots/slide-01.png`) or `look.mjs` (→ `shots/s01.png`):
+picture is a grey rectangle with a title on it. Write the cover to a file first, with
+`node lib/eyes.mjs "<look-url>" --slides 1` (→ `shots/slide-01.png`):
 
 ```js
 deck.poster = await poster('shots/slide-01.png', deck);   // from lib/podium.mjs
@@ -127,5 +113,5 @@ file with eyes and attach it as above.
 
 `node lib/pdf.mjs <share-url> deck.pdf` is the third one, because almost every deck gets
 emailed in the end. It needs the SHARE link rather than the stage, which is behind the
-account — an unauthenticated capture of the stage produces a login page with no slides on
+account: an unauthenticated capture of the stage produces a login page with no slides on
 it, and says so rather than writing a blank file.

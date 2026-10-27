@@ -10,7 +10,7 @@
  * pass the fragment to `svg()` with a viewBox that matches the frame's aspect.
  *
  * These are primitives, NOT a house style. The mark that belongs on your deck is one you
- * derive from the subject — a curve from the real function, a field whose density is the
+ * derive from the subject: a curve from the real function, a field whose density is the
  * data, a pattern out of the culture the deck is about. Compose these into that.
  */
 
@@ -30,7 +30,7 @@ export function rng(seed) {
 /**
  * Smooth 1-D noise on [0,1] → [-1,1]: a few sine components at random phase, each half
  * the amplitude of the last. Deterministic, cheap, and enough for any natural-looking
- * boundary — a coastline, a temper line, a torn edge, a hand-drawn rule.
+ * boundary: a coastline, a temper line, a torn edge, a hand-drawn rule.
  */
 export function noise(seed, octaves = 5) {
   const r = rng(seed);
@@ -53,7 +53,7 @@ export const n0 = (v) => Math.round(v);
  *
  * Every svg block on every slide is inlined into ONE document, so an id is global to the
  * deck: two hatches that both called their clip `hatchclip` both clipped to whichever rect
- * the browser met first. Random ids would fix that and break the other promise — a deck is
+ * the browser met first. Random ids would fix that and break the other promise: a deck is
  * rebuilt by program and diffed, so the same call has to print the same bytes every time.
  * A hash of the arguments gives both: identical calls agree, different calls do not meet.
  */
@@ -95,7 +95,7 @@ export function boundary({ w = 1920, y = 0, amp = 100, seed = 1, samples = 480, 
  * Hand-drawn wobble: the same polyline, displaced by low-frequency noise, so corners
  * overshoot and sides stop being parallel. A filter applied over true geometry gives
  * uniform amplitude and corners that still meet, which is exactly what a drawn line
- * does not do — so this displaces the points instead.
+ * does not do, so this displaces the points instead.
  */
 export function wobble(pts, { amp = 4, seed = 3, close = false } = {}) {
   const nx = noise(seed, 3);
@@ -132,7 +132,7 @@ export function hatch({ w, h, angle = 45, gap = 8, seed, id } = {}) {
 }
 
 /**
- * A stipple field whose density is a function you supply — so the mark can BE the data
+ * A stipple field whose density is a function you supply, so the mark can BE the data
  * rather than illustrate it. `density(x, y)` returns 0–1.
  *
  * Bucketed into a handful of `<use>` references rather than fully-specified circles: the
@@ -164,7 +164,7 @@ export function stipple({ w, h, count = 1500, seed = 7, density = () => 1, sizes
 }
 
 /**
- * Nested closed contours around scattered centres — a topographic field. Wood grain,
+ * Nested closed contours around scattered centres: a topographic field. Wood grain,
  * pressure, elevation, a crowd. The wobble is capped well under the ring spacing: rings
  * that cross each other stop reading as contours and start reading as steel wool.
  */
@@ -201,7 +201,7 @@ export function contours({
 
 /**
  * A circular arc described by its chord and its sag, optionally dimensioned like an
- * engineering drawing — which is how you say "this curve is a measurement, not a gesture".
+ * engineering drawing, which is how you say "this curve is a measurement, not a gesture".
  */
 export function arc({ x0 = 0, x1 = 1000, y = 300, sag = 120, dim = false, stroke = 2.4 } = {}) {
   const L = x1 - x0;
@@ -240,7 +240,7 @@ export function axis({ w = 1200, stops = [], h = 130 } = {}) {
  * Tile a motif across a rectangle, as a real SVG `<pattern>`.
  *
  * `motif` is a fragment drawn in a `size`×`size` cell. Offsetting alternate rows by half
- * a cell is what turns a grid of circles into a fabric — most traditional repeats are a
+ * a cell is what turns a grid of circles into a fabric; most traditional repeats are a
  * brick or a half-drop, not a square lattice.
  *
  * `id` names the pattern. Leave it out and one is derived from the arguments, so two

@@ -1,22 +1,20 @@
 /**
- * Light, as recipes. Each returns plain Podium JSON — a slide `bg`, or a block — built from
+ * Light, as recipes. Each returns plain Podium JSON (a slide `bg`, or a block) built from
  * YOUR deck's colours, so the craft comes with the call and the palette does not.
  *
- * Measured off the decks people hold up as the standard (a cinematic investor deck,
- * rebuilt slide by slide until it matched), then made palette-free: every colour role is
- * derived from the one hue you pass, at the lightness offsets the original used. Pass a
- * violet and you get that deck's sky; pass a teal, an ember or a cold blue and you get a
- * sky nobody has seen. Copying the original's colours is copying the deck — don't.
+ * Palette-free: every colour role is derived from the one hue you pass, so the light is
+ * this deck's own.
  *
  *   import { aurora, dusk, spotlight, glow, glass, stars } from './lib/atmosphere.mjs';
- *   slide({ bg: aurora({ glow: '#2FB8A6' }) }, [ stars(), glass({ x: 120, y: 300, w: 760, h: 420 }, [ … ]) ])
+ *   slide({ bg: aurora({ glow: '<your hue>' }) }, [ … ])
  *
- * Grounds: aurora (a lit arch — the statement slides), dusk (a warm floor — chapters),
- * spotlight (one light in the dark — product). Blocks: glow, glass, stars.
+ * Grounds: aurora (a lit arch: the statement slides), dusk (a warm floor: chapters),
+ * spotlight (one light in the dark: product). Blocks: glow, glass, stars.
  *
  * Worked answers, not the look: every deck that reaches for aurora() is the same sky in
- * another colour. Vary the parameters (where the arch sits, how many lights, which corner),
- * or build your own ground from the same paint fields — cinematic.md lists others.
+ * another colour. At most one direction uses them. Vary the parameters (where the arch sits,
+ * how many lights, which corner), or build your own ground from the same paint fields: a
+ * light source, its falloff, its colour and a texture, from this deck's world.
  */
 
 /* ── colour, in HSL, because the recipes speak in "lighter", "deeper", "warmer" ── */
@@ -56,28 +54,28 @@ const fade = (color, at = 1) => ({ color, at, alpha: 0 });
 
 /**
  * The aurora: a lit arch over a dark ground. One family of ellipses centred LOW, so the
- * dark ring is an ARCH — down both sides to the frame edge, across the top, open at the
- * bottom — not a halo. Inside: a bright core column, a deep trough, a lit band. The ring
+ * dark ring is an ARCH (down both sides to the frame edge, across the top, open at the
+ * bottom), not a halo. Inside: a bright core column, a deep trough, a lit band. The ring
  * itself is the base showing through a wide, soft gap between the band's fade and the
  * rim's; that gap is what reads as depth (narrow it and it reads as a smudge). A warmer
  * wash lightens the ring across the top; the arch's feet rise in both bottom corners.
  *
- * `glow`  the light — the one hue everything is derived from
+ * `glow`  the light: the one hue everything is derived from
  * `base`  the night behind it (default: the glow's hue at 8% lightness)
  * `arch`  how low the arch is centred, 0.7–0.9 (default 0.8)
  * `grain` 0.5 reads as film on a sky this dark; 0.3 is cleaner
  */
 /** @param {{ glow: string, base?: string, arch?: number, grain?: number }} opts */
 export function aurora({ glow, base, arch = 0.8, grain = 0.5 } = /** @type {any} */ ({})) {
-  if (!glow) throw new Error('aurora({ glow }): the light\'s hue, e.g. "#7449CC" — the deck\'s own');
+  if (!glow) throw new Error('aurora({ glow }): the light\'s hue, a #hex from this deck\'s own palette');
   const L = lightness(glow);
   const night = base ?? tone(glow, 0.08, { ds: -0.25 });
   const ring = { at: [0.5, arch], size: [0.6, 0.82] };
   const core = tone(glow, Math.min(0.72, L + 0.1));
   const trough = tone(glow, Math.max(0.2, L - 0.1), { ds: 0.05 });
   const wash = tone(glow, Math.min(0.78, L + 0.12), { dh: 14 });
-  /* The rim goes deeper and a little cooler than the light — indigo under a violet sky,
-     not a second violet; that coolness is what keeps the top corners from glowing. */
+  /* The rim goes deeper and a little cooler than the light, not a second copy of it;
+     that coolness is what keeps the top corners from glowing. */
   const rim = tone(glow, Math.max(0.1, L - 0.25), { dh: -10 });
   const rim2 = tone(glow, Math.max(0.14, L - 0.19), { dh: -12 });
   const feet = tone(glow, Math.max(0.18, L - 0.08));
@@ -94,7 +92,7 @@ export function aurora({ glow, base, arch = 0.8, grain = 0.5 } = /** @type {any}
 }
 
 /**
- * Dusk: a dark ground with warm light pooling along the floor — the chapter slides, where
+ * Dusk: a dark ground with warm light pooling along the floor, for the chapter slides, where
  * the statement sits in the upper half and the floor carries the colour. `lights` are one
  * to three hues, left to right.
  */
@@ -121,7 +119,7 @@ export function spotlight({ color, base = '#0C0B0E', at = [0.72, 0.5], size = 0.
 
 /**
  * A glow: a blurred disc behind the thing that glows. A generated cut-out comes back with
- * its own glow gone (the halo's pixels are transparent), so every hero object needs one.
+ * its own glow gone (the halo's pixels are transparent): on a lit ground, give it one.
  */
 /** @param {{ x: number, y: number, color: string, size?: number, blur?: number, opacity?: number, z?: number }} opts */
 export function glow({ x, y, size = 520, color, blur = 90, opacity = 0.5, z = 0 } = /** @type {any} */ ({})) {
@@ -132,7 +130,7 @@ export function glow({ x, y, size = 520, color, blur = 90, opacity = 0.5, z = 0 
 
 /**
  * Frosted glass: a translucent pane, a hairline edge, blur behind, depth under. `on` is what
- * it floats over — "colour" (a lit sky: whiter, fainter) or "dark" (a black ground: denser).
+ * it floats over: "colour" (a lit sky: whiter, fainter) or "dark" (a black ground: denser).
  * Its children FLOW, so the pane's own padding and gap lay them out; a child with its own
  * `at` opts out of that.
  */
@@ -151,7 +149,7 @@ export function glass({ x, y, w, h, on = 'colour', radius, pad = 40, gap = 16, z
 }
 
 /**
- * Star specks: a few points, each with its own soft halo — seven on a slide is a sky,
+ * Star specks: a few points, each with its own soft halo; seven on a slide is a sky,
  * seventy is wallpaper. Seeded, so a deck's sky is the same every build.
  */
 /** @param {{ n?: number, seed?: number, w?: number, h?: number, r?: number, halo?: number, opacity?: number, color?: string, margin?: number, z?: number }} [opts] */

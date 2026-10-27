@@ -5,21 +5,15 @@
  *   node lib/eyes.mjs "<look-url>"                  overview pictures → ./shots/
  *   node lib/eyes.mjs "<look-url>" --slides 3,7     full size         → ./shots/
  *   node lib/eyes.mjs "<look-url>" --slides 4.1     slide 4 after its first click (a build)
+ *   node lib/eyes.mjs "<any-url>"                   a picture of any page, e.g. a craft reference
  *
  * Hand it the `look` URL that `publish` and `preview` return: it prints the measurements
  * from `window.podium.report()` and writes the slides as pictures. That needs nothing set
  * up, so it is the default. With no arguments the same file is a local MCP server with one
- * tool, `look`, which returns the pictures inside the tool result — optional, and the way
+ * tool, `look`, which returns the pictures inside the tool result. It is optional, and the way
  * to look from a client with no shell:
  *
  *   claude mcp add --scope user podium-eyes -- node ${CLAUDE_SKILL_DIR}/lib/eyes.mjs
- *
- * Why it exists. Every layout bug this project has had survived a clean build and died the
- * moment somebody looked at a picture. Looking used to mean `npm i playwright`, a script,
- * and opening PNGs by hand, so an agent that was never set up for it published blind. The
- * agent that builds decks in Figma gets a screenshot back from every call. This is that,
- * without Podium's server ever running a browser: it drives the Chrome already on this
- * machine.
  *
  * Nothing to install. Chrome is driven over the DevTools protocol on a pipe
  * (`--remote-debugging-pipe`, the transport Puppeteer uses underneath), so there is no
@@ -45,6 +39,12 @@ const CALL_TIMEOUT = 120_000;
    5MB, and a photographic slide at 1568px can pass that as PNG. */
 const PNG_LIMIT = 4.5 * 1024 * 1024;
 
+/* How long after the document is parsed to stop waiting for its `load` event. A site full of
+   ads and trackers holds `load` back for most of a minute, a Fonts In Use page took 46s,
+   and nothing here needs it: a deck says it is ready with data-podium-ready, and pictures are
+   waited for on their own (`images`). */
+const LOAD_GRACE_MS = 3_000;
+
 /* The contact sheet's side padding, from ContactSheet.svelte. The viewport is the picture's
    width plus this on both sides, so a re-tiled sheet lands exactly on EDGE. */
 const SHEET_PAD = 32;
@@ -57,8 +57,8 @@ const SHEET_VIEWPORT = EDGE - 2 * MARGIN + 2 * SHEET_PAD;
  * What the pictures need from the sheet that a person looking at it does not.
  *
  * - A neutral mid-grey board and light captions. The sheet paints its board and captions in
- *   the deck's own colours, so on a deck whose inverted ink is dark the captions — the slide
- *   numbers the agent is told to refer to — vanished into the board, and a dark slide on a
+ *   the deck's own colours, so on a deck whose inverted ink is dark the captions (the slide
+ *   numbers the agent is told to refer to) vanished into the board, and a dark slide on a
  *   dark board had no visible edge. Grey separates slides of any ground from each other.
  * - `min-width: 0` on a tile. A grid item is as wide as its longest unbreakable line unless
  *   told otherwise, so one long slide title in a caption widened its column and pushed the
@@ -224,6 +224,10 @@ class Chrome {
       await this.exited;
       clearTimeout(hard);
     }
+    /* Chrome's helper processes inherit its stderr and can hold the pipes open for half a
+       minute after the browser itself has gone, and Node will not exit while a pipe is open:
+       a 21-second look at a heavy page took 47 seconds to return. Let go of them. */
+    for (const s of this.proc.stdio) s?.destroy?.();
   }
 }
 
@@ -244,7 +248,7 @@ const shortUrl = (u) => {
 /* ─────────────────────────────  a page  ───────────────────────────── */
 
 /**
- * A fresh tab for one look, with what went wrong while it loaded collected on the side —
+ * A fresh tab for one look, with what went wrong while it loaded collected on the side:
  * a 404 on `/m/…` is a missing picture, and nothing in the measured report can see that.
  */
 async function openTab(chrome) {
@@ -255,7 +259,8 @@ async function openTab(chrome) {
   const problems = [];
   const urls = new Map();
   let onLoad = null;
-  /* The HTTP status of the page itself — the main frame's document, whose id is the target's. */
+  let onDom = null;
+  /* The HTTP status of the page itself, the main frame's document, whose id is the target's. */
   let docStatus = null;
   const off = chrome.on((e) => {
     if (e.sessionId !== sessionId) return;
@@ -263,6 +268,9 @@ async function openTab(chrome) {
     switch (e.method) {
       case 'Page.loadEventFired':
         onLoad?.();
+        break;
+      case 'Page.domContentEventFired':
+        onDom?.();
         break;
       case 'Runtime.exceptionThrown':
         problems.push(`page error: ${(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text ?? '').split('\n')[0]}`);
@@ -304,9 +312,10 @@ async function openTab(chrome) {
   const navigate = async (url) => {
     docStatus = null;
     const loaded = new Promise((resolve) => { onLoad = resolve; });
+    const parsed = new Promise((resolve) => { onDom = resolve; }).then(() => sleep(LOAD_GRACE_MS));
     const nav = await send('Page.navigate', { url });
     if (nav.errorText) throw new Error(`could not open ${url}: ${nav.errorText}`);
-    await withTimeout(loaded, 60_000, 'the page never finished loading');
+    await withTimeout(Promise.race([loaded, parsed]), 60_000, 'the page never finished loading');
   };
 
   /** Poll an expression until it is truthy. Resolves false on timeout rather than throwing. */
@@ -322,9 +331,11 @@ async function openTab(chrome) {
   /** Two animation frames, then a beat: long enough for a ResizeObserver to rescale a tile. */
   const settle = () => evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 120))))');
 
-  /** Every picture on the page decoded, or given up on after `ms`. */
+  /** Every picture in view decoded, or given up on after `ms`. Only in view: a lazy picture
+      below the fold never loads until it is scrolled to, and waiting for it spent the whole
+      timeout on every reference site. */
   const images = (ms = 15_000) => evaluate(`Promise.race([
-    Promise.all([...document.images].filter((i) => i.getClientRects().length).map((i) =>
+    Promise.all([...document.images].filter((i) => { const r = i.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight; }).map((i) =>
       i.complete ? null : new Promise((r) => { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); }))),
     new Promise((r) => setTimeout(r, ${ms}))
   ]).then(() => true)`);
@@ -355,7 +366,7 @@ async function openTab(chrome) {
 
 /**
  * The URL a look should open. A preview link (`/x/…`) or a share link (`/d/…`) is turned
- * into its contact sheet, whatever mode it was minted in — `preview` with `slide` hands
+ * into its contact sheet, whatever mode it was minted in: `preview` with `slide` hands
  * back a `?still=1#n` stage link, and the sheet is where every slide can be measured.
  */
 function sheetUrl(raw, comments = false) {
@@ -366,7 +377,7 @@ function sheetUrl(raw, comments = false) {
   if (deckLink) {
     u.searchParams.delete('still');
     u.searchParams.set('contact', '1');
-    // Numbered pins for the open comments — a preview link draws them; a share link does not.
+    // Numbered pins for the open comments. A preview link draws them; a share link does not.
     if (comments) u.searchParams.set('comments', '1');
     else u.searchParams.delete('comments');
     u.hash = '';
@@ -375,7 +386,7 @@ function sheetUrl(raw, comments = false) {
 }
 
 /**
- * Builds asked for as "slide.step" — "2.1" is slide 2 after its first click — mapped
+ * Builds asked for as "slide.step" ("2.1" is slide 2 after its first click), mapped
  * slide → step. Strings, so "2.10" is not read as 2.1.
  */
 function parseBuilds(v) {
@@ -385,13 +396,13 @@ function parseBuilds(v) {
     const m = /^\s*(\d+)\.(\d+)\s*$/.exec(String(part));
     if (!m) continue;
     const [n, step] = [Number(m[1]), Number(m[2])];
-    if (out.has(n) && out.get(n) !== step) throw new Error(`Slide ${n} twice, at builds ${out.get(n)} and ${step} — one build of a slide per look.`);
+    if (out.has(n) && out.get(n) !== step) throw new Error(`Slide ${n} twice, at builds ${out.get(n)} and ${step}. One build of a slide per look.`);
     out.set(n, step);
   }
   return out;
 }
 
-/** 1-based slide numbers from an array, a number, or "3,7" / "2-4" — and "2.1" for a build. */
+/** 1-based slide numbers from an array, a number, or "3,7" / "2-4", and "2.1" for a build. */
 function parseSlides(v) {
   if (v === undefined || v === null || v === '') return [];
   const parts = Array.isArray(v) ? v : String(v).split(',');
@@ -409,7 +420,7 @@ function parseSlides(v) {
 /**
  * How many tiles across and down one overview picture holds, for this deck's shape. The
  * sheet's width is fixed at EDGE, so the columns decide the tile size: four across puts a
- * 16:9 slide at ~375px, where a headline reads and body copy does not — which is what the
+ * 16:9 slide at ~375px, where a headline reads and body copy does not, which is what the
  * full-size look is for.
  */
 function sheetGrid(frame) {
@@ -431,7 +442,7 @@ function plan({ url, slides, comments } = {}) {
     target.url = u.toString();
   }
   if (asked.length > MAX_SLIDES) {
-    throw new Error(`Up to ${MAX_SLIDES} slides at full size per look — you asked for ${asked.length}. Look at the overview first and pick the ones that need it.`);
+    throw new Error(`Up to ${MAX_SLIDES} slides at full size per look; you asked for ${asked.length}. Look at the overview first and pick the ones that need it.`);
   }
   return { target, asked, builds };
 }
@@ -443,15 +454,15 @@ async function lookAt(chrome, { target, asked, builds = new Map() }) {
     await tab.navigate(target.url);
 
     /* A Podium link that answered an error has nothing to look at. It used to be waited on
-       for twenty seconds and then photographed as if it were a reference site — "is not a
-       Podium deck" — when the link had only expired, or was made for an older version. */
+       for twenty seconds and then photographed as if it were a reference site ("is not a
+       Podium deck") when the link had only expired, or was made for an older version. */
     const status = tab.status();
     if (target.deckLink && status >= 400) {
       /* Podium's error card puts the server's own words in `.lead`; any other page, its text. */
       const said = String(await tab.evaluate(`(document.querySelector('.auth-card .lead') ?? document.querySelector('main') ?? document.body)?.innerText ?? ''`).catch(() => ''))
         .replace(/\s+/g, ' ').trim().slice(0, 300);
       throw new Error(
-        `${target.url.replace(/\?.*$/, '')} answered HTTP ${status}${said ? ` — "${said}"` : ''}. ` +
+        `${target.url.replace(/\?.*$/, '')} answered HTTP ${status}${said ? `: "${said}"` : ''}. ` +
         (status === 410
           ? 'A look link shows only the version it was made for: use the look URL the latest publish or preview returned.'
           : 'Use the look URL that publish or preview returned, or the deck\'s share link.')
@@ -459,10 +470,10 @@ async function lookAt(chrome, { target, asked, builds = new Map() }) {
     }
 
     /* The sheet announces itself once it has hydrated. Anything that never does is not a
-       Podium deck — a site somebody pointed at as a reference — and is screenshotted as a
+       Podium deck (a site somebody pointed at as a reference) and is screenshotted as a
        page instead of failing. */
     const isDeck = await tab.until('Boolean(window.podium && ((window.podium.report && document.querySelector(".tiles figure.cell")) || window.podium.kind === "page"))', target.deckLink ? 20_000 : 4_000);
-    /* A page — one HTML document — is read by scrolling, at two widths, not as a sheet. */
+    /* A page (one HTML document) is read by scrolling, at two widths, not as a sheet. */
     if (isDeck && await tab.evaluate('window.podium.kind === "page"')) return await lookAtPageDoc(chrome, tab);
     if (!isDeck) {
       if (target.stage) {
@@ -584,7 +595,7 @@ const pad = ([x, y, w, h], p) => [Math.max(0, x - p), Math.max(0, y - p), w + 2 
 
 /*
  * A Podium page: one HTML document in the viewer's sandboxed frame, read the way a person
- * reads it — scrolled, screen by screen, at a desktop width and at a phone's. Scrolling
+ * reads it: scrolled, screen by screen, at a desktop width and at a phone's. Scrolling
  * (rather than stretching the frame to the page's full height) keeps a 100vh hero the
  * height of a screen and lets every reveal-on-scroll run. The screens are tiled into a
  * few overview pictures per width; the measurements come from Podium's bridge inside the
@@ -622,7 +633,7 @@ async function lookAtPageDoc(chrome, tab) {
     for (let i = 0; i < screens.length; i += per) {
       const group = screens.slice(i, i + per);
       const tile = await composeTiles(chrome, group, { cols: w.cols, cellW: Math.round(w.width * w.scale), cellH: Math.round(w.height * w.scale) });
-      pictures.push({ ...tile, label: `${w.name} ${w.width}px — screens ${i + 1}–${i + group.length} of ${screens.length}`, kind: 'page' });
+      pictures.push({ ...tile, label: `${w.name} ${w.width}px, screens ${i + 1}–${i + group.length} of ${screens.length}`, kind: 'page' });
     }
     seen.push({ ...w, report, screens: screens.length });
   }
@@ -665,17 +676,17 @@ async function composeTiles(chrome, screens, { cols, cellW, cellH }) {
 function pageSummary(seen, problems) {
   const lines = [];
   const title = seen[0]?.report?.title || 'Untitled page';
-  lines.push(`"${title}" — a page, seen at ${seen.map((s) => `${s.width}px (${s.name}, ${s.report?.height ?? '?'}px tall, ${s.screens} screens)`).join(' and ')}.`);
+  lines.push(`"${title}": a page, seen at ${seen.map((s) => `${s.width}px (${s.name}, ${s.report?.height ?? '?'}px tall, ${s.screens} screens)`).join(' and ')}.`);
   lines.push('Each picture tiles the screens in reading order, left to right, top to bottom.');
   for (const s of seen) {
     const r = s.report ?? {};
     const out = [];
-    if (r.overflow?.length) out.push(`!! scrolls sideways — ${r.overflow.slice(0, 3).map((o) => `${o.selector} reaches ${o.right}px${o.text ? ` ("${o.text}")` : ''}`).join('; ')}`);
+    if (r.overflow?.length) out.push(`!! scrolls sideways: ${r.overflow.slice(0, 3).map((o) => `${o.selector} reaches ${o.right}px${o.text ? ` ("${o.text}")` : ''}`).join('; ')}`);
     const smallest = r.textSizes?.[0]?.px;
-    if (smallest !== undefined) out.push(`smallest text ${smallest}px${r.small?.length ? ` — under 12px: ${r.small.slice(0, 3).map((t) => `${t.px}px "${t.text}"`).join(', ')}` : ''}`);
+    if (smallest !== undefined) out.push(`smallest text ${smallest}px${r.small?.length ? `; under 12px: ${r.small.slice(0, 3).map((t) => `${t.px}px "${t.text}"`).join(', ')}` : ''}`);
     const missing = (r.fonts ?? []).filter((f) => !f.loaded);
-    out.push(`faces: ${(r.fonts ?? []).map((f) => `${f.family}${f.generic ? '' : f.loaded ? ' ✓' : ' ✗'}`).join(' · ') || '—'}`);
-    if (missing.length) out.push(`!! never loaded: ${missing.map((f) => f.family).join(', ')} — check the Google Fonts <link>`);
+    out.push(`faces: ${(r.fonts ?? []).map((f) => `${f.family}${f.generic ? '' : f.loaded ? ' ✓' : ' ✗'}`).join(' · ') || 'none'}`);
+    if (missing.length) out.push(`!! never loaded: ${missing.map((f) => f.family).join(', ')}; check the Google Fonts <link>`);
     if (r.broken?.length) out.push(`!! broken pictures: ${r.broken.join(', ')}`);
     if (s.mobile && r.smallTaps?.length) out.push(`links or buttons under 32px to tap: ${r.smallTaps.slice(0, 4).map((t) => `"${t.text}" ${t.w}×${t.h}`).join(', ')}`);
     if (r.errors?.length) out.push(`!! script errors: ${r.errors.slice(0, 4).join(' | ')}`);
@@ -683,8 +694,8 @@ function pageSummary(seen, problems) {
   }
   const r0 = seen[0]?.report ?? {};
   const notes = [];
-  if (r0.h1 !== 1) notes.push(`${r0.h1 ?? 0} <h1> elements — a page has exactly one`);
-  if (r0.sectionsWithoutId) notes.push(`${r0.sectionsWithoutId} <section>s without an id — comments pin to ids`);
+  if (r0.h1 !== 1) notes.push(`${r0.h1 ?? 0} <h1> elements (a page has exactly one)`);
+  if (r0.sectionsWithoutId) notes.push(`${r0.sectionsWithoutId} <section>s without an id (comments pin to ids)`);
   if (r0.imagesWithoutAlt) notes.push(`${r0.imagesWithoutAlt} pictures without alt text`);
   if (notes.length) lines.push(`\nStructure: ${notes.join('; ')}.`);
   const p = [...new Set(problems)];
@@ -704,7 +715,7 @@ async function lookAtPage(tab, url) {
   const height = await tab.evaluate('document.documentElement.scrollHeight');
   const pictures = [{ ...(await tab.capture([0, 0, width, Math.min(height, screen)])), label: 'page, top' }];
 
-  /* A results page — a search on a reference site — keeps most of what is worth seeing
+  /* A results page (a search on a reference site) keeps most of what is worth seeing
      below the fold, and loads its pictures only as they scroll in. So a second screen,
      scrolled to first, when there is one worth the name. */
   if (height > screen + 200) {
@@ -716,7 +727,7 @@ async function lookAtPage(tab, url) {
 
   const text = [
     `${url} is not a Podium deck, so ${pictures.length === 1 ? 'this is a picture of the page' : 'these are its top two screens'}, ` +
-    `at ${width}px wide — for reading a reference, not for checking a deck.`,
+    `at ${width}px wide, for reading a reference, not for checking a deck.`,
     tab.problems.length ? `\nWhile loading:\n${[...new Set(tab.problems)].slice(0, 12).map((p) => `  ${p}`).join('\n')}` : ''
   ].join('');
   return { text, pictures };
@@ -725,30 +736,30 @@ async function lookAtPage(tab, url) {
 /** What the pictures cannot say, in the order worth reading it. */
 function summary({ title, frame, total, labels, report, problems, fontsSettled, asked, pictures }) {
   const lines = [];
-  lines.push(`"${title}" — ${total} slide${total === 1 ? '' : 's'} on a ${frame.w}×${frame.h} plane.`);
+  lines.push(`"${title}": ${total} slide${total === 1 ? '' : 's'} on a ${frame.w}×${frame.h} plane.`);
   lines.push(asked.length
     ? `Full size: ${pictures.map((p) => p.label).join(', ')}.`
-    : `Overview: ${pictures.length} picture${pictures.length === 1 ? '' : 's'} — ${pictures.map((p, i) => `${i + 1}) ${p.label}`).join(', ')}. Each tile is captioned with its number.`);
+    : `Overview: ${pictures.length} picture${pictures.length === 1 ? '' : 's'}: ${pictures.map((p, i) => `${i + 1}) ${p.label}`).join(', ')}. Each tile is captioned with its number.`);
 
-  if (!fontsSettled) lines.push('\n!! The fonts never settled within 60s — the pictures may show fallback faces.');
+  if (!fontsSettled) lines.push('\n!! The fonts never settled within 60s; the pictures may show fallback faces.');
 
   const fonts = report?.fonts ?? [];
   /* `used === false` is a slot nothing on any slide is set in: not loading it is correct.
      (Older servers do not send `used`; treat that as used, as before.) */
   const missing = fonts.filter((f) => f.family && !f.loaded && !f.generic && f.used !== false);
   if (fonts.length) {
-    lines.push(`\nFaces: ${fonts.map((f) => `${f.slot} ${f.family || '—'}${f.generic ? '' : f.loaded ? ' ✓' : f.used === false ? ' (unused)' : ' ✗'}`).join(' · ')}`);
-    if (missing.length) lines.push(`!! Never loaded: ${missing.map((f) => `${f.slot} "${f.family}"`).join(', ')} — everything set in them is a fallback face. Check fonts.google names them, spelled exactly.`);
+    lines.push(`\nFaces: ${fonts.map((f) => `${f.slot} ${f.family || 'none'}${f.generic ? '' : f.loaded ? ' ✓' : f.used === false ? ' (unused)' : ' ✗'}`).join(' · ')}`);
+    if (missing.length) lines.push(`!! Never loaded: ${missing.map((f) => `${f.slot} "${f.family}"`).join(', ')}. Everything set in them is a fallback face. Check fonts.google names them, spelled exactly.`);
   }
 
   const smallest = report?.smallest ?? [];
-  if (smallest.length) lines.push(`\nSmallest type, measured (px on the ${frame.w}-wide plane): ${smallest.map((v, i) => `${i + 1}·${v || '—'}`).join('  ')}`);
+  if (smallest.length) lines.push(`\nSmallest type, measured (px on the ${frame.w}-wide plane): ${smallest.map((v, i) => `${i + 1}·${v || '?'}`).join('  ')}`);
 
   const findings = report?.findings ?? [];
   if (findings.length) {
     lines.push(`\nFindings (${findings.length}), measured in the browser:`);
     for (const f of findings.slice(0, 40)) {
-      lines.push(`  ${f.slide ? `slide ${f.slide}` : 'deck'} — ${f.what}: ${f.detail}`);
+      lines.push(`  ${f.slide ? `slide ${f.slide}` : 'deck'}, ${f.what}: ${f.detail}`);
     }
     if (findings.length > 40) lines.push(`  … and ${findings.length - 40} more`);
   } else {
@@ -764,8 +775,8 @@ function summary({ title, frame, total, labels, report, problems, fontsSettled, 
   if (!asked.length) {
     const flagged = [...new Set(findings.map((f) => f.slide).filter(Boolean))].slice(0, MAX_SLIDES);
     lines.push(flagged.length
-      ? `\nNext: look again with slides: [${flagged.join(', ')}] to see the flagged slides full size, then fix the program and publish.`
-      : `\nNext: look again with slides: [n, …] (up to ${MAX_SLIDES}) for any slide whose type, alignment or detail you need to check at full size.`);
+      ? `\nNext: see slides ${flagged.join(', ')} full size (--slides ${flagged.join(',')}, or slides: [${flagged.join(', ')}] in the look tool), then fix the program and publish.`
+      : `\nNext: see any slide whose type, alignment or detail you need to check full size (--slides n,…, or slides: [n, …] in the look tool; up to ${MAX_SLIDES}).`);
   }
   if (labels?.length && !asked.length && total <= 60) {
     lines.push(`\nSlides: ${labels.map((l, i) => `${i + 1} ${l}`).join(' · ')}`);
@@ -780,14 +791,14 @@ const TOOL = {
   title: 'Look at a Podium deck',
   description:
     'SEE THE DECK YOU PUBLISHED. Pass the `look` URL that publish or preview returned (a /x/… ' +
-    'link), or a share link (/d/…). Without `slides` you get overview pictures — twelve slides ' +
-    'to a picture, each captioned with its number — and the findings measured in a real ' +
+    'link), or a share link (/d/…). Without `slides` you get overview pictures (twelve slides ' +
+    'to a picture, each captioned with its number) and the findings measured in a real ' +
     'browser: faces that never loaded, text that overflows its box, blocks sitting on top of ' +
     'each other, headlines that wrapped, pictures that 404. With `slides: [n, …]` (up to six) ' +
     'you get those slides full size, to check type, alignment and detail. Look after EVERY ' +
     'publish: read the findings, look at the pictures, change the program, publish again. A ' +
-    'deck that saves clean is not a deck that renders right. Any other URL comes back as a ' +
-    'picture of the page, for reading a reference someone pointed you at.',
+    'page\'s look URL comes back as screens at 1440px and 390px with its measurements. Any other ' +
+    'URL comes back as a picture of the page, for reading a reference.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -800,7 +811,7 @@ const TOOL = {
       },
       comments: {
         type: 'boolean',
-        description: 'Draw the open comments as numbered pins, numbered as decks({ id }) numbers them — so "pin 3" is thread n: 3. Preview links only.'
+        description: 'Draw the open comments as numbered pins, numbered as decks({ id }) numbers them, so "pin 3" is thread n: 3. Preview links only.'
       }
     },
     required: ['url']
@@ -932,14 +943,14 @@ async function cli(argv) {
       writeFileSync(join(outdir, name), Buffer.from(p.data, 'base64'));
     });
     console.log(text);
-    console.error(`\nwrote ${pictures.length} picture${pictures.length === 1 ? '' : 's'} to ${outdir}/ — now look at them`);
+    console.error(`\nwrote ${pictures.length} picture${pictures.length === 1 ? '' : 's'} to ${outdir}/; now look at them`);
   } finally {
     await c.close();
   }
 }
 
-/* No arguments: speak MCP on stdio. A URL: look once and write the pictures. Imported —
-   by Podium's rendering service, which looks for clients with no machine of their own —
+/* No arguments: speak MCP on stdio. A URL: look once and write the pictures. Imported
+   (by Podium's rendering service, which looks for clients with no machine of their own),
    nothing runs, and the service drives the same functions. */
 const invoked = (() => {
   try { return import.meta.url === pathToFileURL(realpathSync(process.argv[1] ?? '')).href; } catch { return false; }

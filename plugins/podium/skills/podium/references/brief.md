@@ -3,39 +3,33 @@
 For a deck that carries weight: a pitch, a board deck, a launch, anything a customer will
 see, anything longer than about ten slides. The quick round (`SKILL.md` step 2, in full in
 `references/asking.md`: one batch of four) is still the default. Offer this one when the stakes call for it, in the first
-question of that round: *"This one matters — do you want the thorough brief? Three short
+question of that round: *"This one matters. Do you want the thorough brief? Three short
 rounds, about two minutes."* Default: no.
 
 ## Contents
 
-- Round 1 — the room, and something to point at
-- Round 2 — what goes in, and what must not
-- Round 3 — the look, and the length
+- Round 1, the room, and what binds the look
+- Round 2, what goes in, and what must not
+- Round 3, the subject's world, and the length
 - Recording it
 
 It is three rounds of `AskUserQuestion`, four questions each, asked one round at a time.
-The rule from `SKILL.md` and `asking.md` still holds inside every round:
-
-- Each question changes a line of `build.mjs`. If it changes nothing, drop it.
-- Every question has a default, marked, so somebody who does not care taps once.
-- The options disagree with each other, and are written as consequences.
-- Never ask what the folder, the repo or an earlier deck already answers. Read first.
+Every rule of the quick round holds inside each one (`asking.md`, *One round, four
+questions*).
 
 Skip any question the conversation has already answered, and say that you did: *"You said
 it's for the board on Thursday, so I haven't asked about the audience."*
 
-## Round 1 — the room, and something to point at
+## Round 1, the room, and what binds the look
 
-1. **Is there anything you can point at?** First, every time: a Pinterest pin or board, a
-   Behance or Dribbble shot, a screenshot, a deck, a poster, a site. Two is better than
-   one. Put the Pinterest, Behance and Dribbble links in the question, already searched
-   for their subject (`node lib/references.mjs --ask "<query>"`), so having nothing to hand
-   is a click and two pasted screenshots, not a no. Offer *"You pick"* as the other option,
-   which runs *When they have nothing to point at* in `SKILL.md`, and a preset as one line
-   inside the question (default: no). Asked first so they can go and find one while they
-   answer the rest.
-   *Changes:* the register — how loud, how dense, how much air — and whether the deck
-   lands or drifts to the generic look.
+There is no reference question, in this round or any other: the look is invented from the
+subject and chosen from pictures in the directions round (`references/asking.md`, *No
+references*).
+
+1. **Does a house style bind this?** Match it, break from it, keep the shell but not the
+   inside, or no house style, yours to invent (the default; a deck for a named company
+   still gets two directions in that company's own brand, colours and type).
+   *Changes:* whether the design language is yours to invent, and what fences it in.
 2. **What should the room do when it ends, and who has to be convinced?** A name and a
    job, not a segment. The one free-text answer worth waiting for.
    *Changes:* the cutting rule. Every slide that does not move that person goes.
@@ -45,7 +39,7 @@ it's for the board on Thursday, so I haven't asked about the audience."*
    recording. Ask about the network in the same breath.
    *Changes:* the ground (deep grounds go grey on projectors), the smallest size, hairlines.
 
-## Round 2 — what goes in, and what must not
+## Round 2: what goes in, and what must not
 
 5. **Where does the content come from?** Documents in the folder, pasted in, drafted by you
    from what they tell you, or a mix. Then go and read what they point at.
@@ -61,11 +55,12 @@ it's for the board on Thursday, so I haven't asked about the audience."*
    *Changes:* the faces (a Latin display face has no Devanagari), whether to redesign at
    all, and how much time the review pass gets.
 
-## Round 3 — the look, and the length
+## Round 3, the subject's world, and the length
 
-9. **Does a house style bind this?** Match it, break from it, keep the shell but not the
-   inside, or no house style.
-   *Changes:* whether the design language is yours to invent.
+9. **What is this subject made of, to the people in the room?** Not a look, the world: the
+   thing they hold or use, the place it happens, the paperwork, the ritual, the moment it
+   goes right or wrong. Offer what you found by reading as options, and take a free-text line.
+   *Changes:* the worlds the three or four directions are invented from.
 10. **How long?** Five minutes, twenty, an hour; or as long as it needs, if it is read.
     *Changes:* slide count, and how much each slide carries.
 11. **What do you hate?** Offer objects to reject, not adjectives: a gradient ground, a stock
@@ -78,10 +73,11 @@ it's for the board on Thursday, so I haven't asked about the audience."*
 
 ## Recording it
 
-Once it is answered, put the brief on the deck: `publish` takes `brief`, keeps it beside the
+Once it is answered, put the brief on the deck: `publish` takes `brief` (an object, a
+string is refused), keeps it beside the
 deck (never on a share link), and `decks({ id })` hands it back to the next session and to
-anyone else's agent that picks the deck up. Send it once; a later publish that leaves it
-out does not erase it.
+anyone else's agent that picks the deck up. Send it with the first publish after asking (the
+directions deck) and again whenever it changes; a publish that leaves it out keeps it.
 
 Write what they said and what you decided for them, and keep the two apart:
 
@@ -91,22 +87,26 @@ brief: {
   asked: '2026-09-30',
   answers: {
     outcome: 'CFO approves the Q3 migration budget',
-    delivery: 'presented live, by Priya',
+    delivery: 'presented live, by <name>',
     screen: 'projector in a lit room; guest wifi',
     length: '15 minutes',
     content: 'docs/migration-plan.md, numbers from finance',
-    numbers: 'internal only — share link stays private',
+    numbers: 'internal only; share link stays private',
     mustNot: ['vendor name', 'the April date'],
-    houseStyle: 'keep the shell: logo and brand red, the rest is free',
+    houseStyle: 'keep the shell: logo and brand colours, the rest is free',
     hate: ['gradient grounds', 'icon grids'],
     pictures: 'none'
   },
-  references: [
-    { from: 'pinterest.com/pin/…', took: 'near-empty covers, one accent on numerals', left: 'the serif' }
+  directions: [                               // the divergence table, one entry per direction
+    { name: '<noun phrase>', world: '…', ground: '…', accent: '…', faces: '…', composition: '…',
+      coverObject: '…', number: '…', comparison: '…', signature: '…', motion: '…',
+      mistakenFor: '…', refs: ['<craft reference URL>'] }
   ],
   assumed: ['16:9', 'English only'],
+  register: 'cinematic',                      // or 'editorial'
   direction: '<the picked direction, as its noun phrase>',   // after they pick
-  skill: 'juspay-decks',                      // their own deck skill, when one was used
+  references: [],                             // any they gave you: { from, took, left, inspirationOnly }
+  skill: '<their deck skill>',                // when one was used
   outline: 'approved 2026-09-30'
 }
 ```

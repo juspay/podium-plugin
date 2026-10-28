@@ -458,8 +458,9 @@ async function lookAt(chrome, { target, asked, builds = new Map() }) {
        Podium deck") when the link had only expired, or was made for an older version. */
     const status = tab.status();
     if (target.deckLink && status >= 400) {
-      /* Podium's error card puts the server's own words in `.lead`; any other page, its text. */
-      const said = String(await tab.evaluate(`(document.querySelector('.auth-card .lead') ?? document.querySelector('main') ?? document.body)?.innerText ?? ''`).catch(() => ''))
+      /* Podium's error page marks the server's own words (`.auth-card .lead` before
+         2026-10-28, still read for a server not yet updated); any other page, its text. */
+      const said = String(await tab.evaluate(`(document.querySelector('[data-podium-reason]') ?? document.querySelector('.auth-card .lead') ?? document.querySelector('main') ?? document.body)?.innerText ?? ''`).catch(() => ''))
         .replace(/\s+/g, ' ').trim().slice(0, 300);
       throw new Error(
         `${target.url.replace(/\?.*$/, '')} answered HTTP ${status}${said ? `: "${said}"` : ''}. ` +

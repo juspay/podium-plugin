@@ -3,7 +3,7 @@ name: Sync the plugin from Podium
 # Podium serves the plugin it was deployed with at /plugin.zip. This copies it here, where
 # claude.ai and Claude Code install and update it from, and raises the version whenever
 # the contents change. Hourly, and on demand right after a deploy:
-#   gh workflow run sync.yml -R swaroopvarma1/podium-plugin
+#   gh workflow run sync.yml -R juspay/podium-plugin
 
 on:
   schedule:

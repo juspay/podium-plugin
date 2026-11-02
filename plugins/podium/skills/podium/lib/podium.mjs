@@ -6,7 +6,7 @@
  * do wrong by hand, block constructors that are shorter than the objects they build, and
  * one function that publishes.
  *
- *   import { Deck, slide, text, svg, image, group, chart, table, rule, grid } from './lib/podium.mjs';
+ *   import { Deck, slide, text, svg, image, video, embed, hyperframe, group, chart, table, rule, grid } from './lib/podium.mjs';
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -75,6 +75,27 @@ export const svg = (source, { at, color, viewBox, style } = {}) =>
 
 export const image = (src, { at, alt, fit = 'contain', position, style } = {}) =>
   clean({ type: 'image', src, alt, fit, position, at, style });
+
+/**
+ * `video('/m/<clip>', { poster: '/m/<still>', at })`: an MP4 or WebM from `upload()`. It
+ * plays on the stage only; every picture of the slide is its poster, so always give one.
+ * autoplay and muted default to true; `repeat`, `controls`, `start`/`end` (ms) as in
+ * references/vocabulary.md, VIDEO AND EMBEDS.
+ */
+export const video = (src, { at, poster, alt, fit, position, style, ...play } = {}) =>
+  clean({ type: 'video', src, poster, alt, ...play, fit, position, at, style });
+
+/** `embed('https://www.youtube.com/watch?v=…', { poster, at })`: the link as copied. */
+export const embed = (src, { at, poster, title, style, ...play } = {}) =>
+  clean({ type: 'embed', src, poster, title, ...play, at, style });
+
+/**
+ * `hyperframe(html, { poster, at })`: a HyperFrames composition playing live on the slide.
+ * Make `html` from a project with `composition(dir)` in lib/hyperframe.mjs. `still` (ms) is
+ * the frame a picture shows when there is no poster; the rest as on a video.
+ */
+export const hyperframe = (html, { at, poster, alt, still, style, ...play } = {}) =>
+  clean({ type: 'hyperframe', html, poster, alt, ...play, still, at, style });
 
 export const group = (blocks, { at, style } = {}) =>
   clean({ type: 'group', blocks, at, style });
@@ -258,7 +279,7 @@ export async function poster(path, deck) {
 }
 
 /**
- * An image on disk → the `/m/<id>` to put on a slide.
+ * An image or a clip on disk → the `/m/<id>` to put on a slide.
  *
  * Pass the deck's own project. Without it the picture lands in whichever project the
  * account happens to list first, which works right up until you look for it.
@@ -267,6 +288,7 @@ export async function upload(path, alt, project) {
   if (BUILD_OUT) return call('upload_media');
   const out = await call('upload_media', { data: readFileSync(path).toString('base64'), alt, project });
   console.error(`uploaded ${path} → ${out.url} (${(out.bytes / 1024).toFixed(0)}KB, ${out.width}×${out.height})`);
+  if (out.warning) console.error(`  ${path}: ${out.warning}`);
   return out.url;
 }
 

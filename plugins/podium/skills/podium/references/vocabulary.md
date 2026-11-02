@@ -11,10 +11,11 @@ Each section below starts with its name in capitals; search for it.
 - A SLIDE IS BLOCKS ON A PLANE: slide fields, bg, tone, notes
 - RICH TEXT: bold, italic, accent, mono, alt
 - CHARTS: bar, line, meter
-- BLOCKS: text, svg, image, group, chart, table; at, style
+- BLOCKS: text, svg, image, group, chart, table, video, embed, hyperframe; at, style
 - ROLES: what each text role draws by default
 - PAINT: gradients, glass, glow, shadow, grain
 - PICTURES: /m/ paths, add_pictures, generate_image
+- VIDEO AND EMBEDS: clips, YouTube, Vimeo, Loom, Figma, Google Drive, HyperFrames, posters
 - MOTION: transitions, builds, loops
 
 ```
@@ -88,7 +89,7 @@ tone default | invert | accent · anim rise | fall | left | right | zoom | none 
 
 BLOCKS, free placement on the 1920×1080 plane.
 
-  types   text · image · svg · chart · table · group
+  types   text · image · svg · chart · table · group · video · embed · hyperframe
   roles   eyebrow cover title h2 h3 statement lede body label micro ordinal
           giant quote bignum pill
           a role inherits the theme's own size for that thing, reach for one before
@@ -98,6 +99,12 @@ BLOCKS, free placement on the 1920×1080 plane.
   faces   display · body · alt · mono
   image   src "/m/<id>" · alt · fit cover · contain · fill · none · position "center" or "60% 30%"
   svg     svg (the source) · viewBox, for a bare fragment · color, which paints currentColor
+  video   src "/m/<id>" (MP4 or WebM) · poster "/m/<id>" · alt · autoplay muted repeat controls
+          · start end (ms into the clip) · fit · position. See VIDEO AND EMBEDS
+  embed   src, a YouTube, Vimeo, Loom, Figma or Google Drive link as copied, or any https:// page · poster
+          · title · autoplay muted repeat controls · start end (ms). See VIDEO AND EMBEDS
+  hyperframe  html, a HyperFrames composition as one document · poster · alt · autoplay muted
+          repeat controls · start end still (ms of film time). See VIDEO AND EMBEDS
 
   at      x y w h right bottom z rotate opacity place, and col/span, which resolve
           against the deck's own twelve-column grid so placement survives a change of
@@ -201,7 +208,7 @@ PICTURES, every one is "/m/<id>": the person's own from add_pictures, generated 
 generate_image. It works in
 three places: an image block's src, a slide's bg.image, and <image href="/m/<id>"> inside
 svg source, where masks, clips and blends apply to it. Share links re-sign them. Nothing
-else loads: no outside URLs, no data: URIs.
+else loads: no outside URLs, no data: URIs (an embed block is the one exception, below).
 
 generate_image kinds: art · render · photo · logo
   art     flat illustration        render  a lit 3D object or scene
@@ -211,6 +218,55 @@ generate_image kinds: art · render · photo · logo
   An image block with style.blend "screen" drops a black ground on a dark slide.
   Pictures come back as JPEG, a tenth of a PNG, except cut-outs and logos, which stay PNG;
   a cut-out that came back wrapped in grey haze says so in the result's warning: make it again.
+
+VIDEO AND EMBEDS, moving pictures that play on the stage and are their poster everywhere else.
+A clip, somebody else's player, or a HyperFrames composition playing live.
+
+  video   { "type": "video", "src": "/m/<id>", "poster": "/m/<id>", "at": { … } }
+          src is an MP4 (H.264) or WebM from upload_media: a screen recording, a product
+          demo, a HyperFrames render. poster is a picture of the frame the room sees first.
+    autoplay   true (default): starts when it arrives, as its slide opens or its build does
+    muted      true (default). false plays the sound from the room's first key press or
+               click; a share link opened cold starts it silent, with a Sound on button
+    repeat     plays again from start at its end; the default holds the last frame
+    controls   the browser's play bar, which takes clicks instead of the deck
+    start end  ms into the clip: it plays, or repeats, just that part
+    fit position   as on an image
+
+  embed   { "type": "embed", "src": "https://www.youtube.com/watch?v=…", "poster": "/m/<id>" }
+          src is the link as copied. YouTube, Vimeo, Loom, Figma and Google Drive become their
+          own players, built from the fields below; any other https:// page is shown as it is,
+          sandboxed.
+    autoplay   false (default): it waits for its own play button. muted follows autoplay
+    controls   true (default): the provider's player takes clicks; false lets them through
+    repeat · start end (ms) · title, what it is, for a screen reader
+    A field the provider cannot do (Vimeo has no end, Loom no repeat) comes back as a warning.
+    Google Drive plays only a file shared "Anyone with the link can view", only when pressed,
+    with none of the fields above: its /view link is turned into its /preview player. A clip
+    that must start itself, repeat or play a segment: download it and upload it, a video block.
+
+  hyperframe  { "type": "hyperframe", "html": "<composition>", "poster": "/m/<id>", "at": { … } }
+          A HyperFrames composition (HTML, CSS, GSAP timelines: what HyperFrames renders to
+          MP4) played LIVE by HyperFrames' own player in a sandbox: sharp at any size, on the
+          slide's clock, no video file. html is the project as one document; in a program,
+          composition('./my-video') from lib/hyperframe.mjs bundles it with HyperFrames' own
+          bundler, uploads its pictures, clips and sound, and leaves the runtime out (the
+          player brings the matching one). Its CDN scripts and fonts need the network.
+    autoplay muted repeat controls start end  as on a video, in ms of film time
+    still      the frame a picture shows when there is no poster; default its last frame
+    A rendered MP4 of the same project (npx hyperframes render) is a plain video block.
+
+  Only the slide on screen plays; the one beside it loads ready; leaving stops it, and the
+  next visit starts again from start. Print, PDF, thumbnails, the contact sheet, the speaker
+  view, still mode and eyes show the POSTER, never the clip, so give every one a poster: a
+  still your program makes (ffmpeg -ss 2 -i clip.mp4 -frames:v 1 poster.jpg), uploaded like
+  any picture. With no frame size it is 16:9; style.aspect or at.h changes that. Keys always
+  drive the deck. Reduced motion: nothing starts by itself, a Play button waits instead.
+
+  Uploads: MP4 or WebM up to 100MB, but under about 20MB when sent as base64; MP3, M4A, WAV
+  and Ogg for a composition's own <audio> (there is no audio block). A .mov or .mkv
+  is refused with the ffmpeg line that converts it; an MP4 that keeps its index at the end
+  comes back with a warning and the line that fixes it (-movflags +faststart).
 
 MOTION, typed like the rest, and still wherever a picture is taken: still mode, print,
 PDF, thumbnails, the contact sheet, eyes and reduced motion show every loop at rest and

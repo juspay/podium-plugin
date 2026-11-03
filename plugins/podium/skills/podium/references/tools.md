@@ -6,6 +6,7 @@ Every tool in one table, how to read what they return, how comments steer a deck
 
 - The tools
 - Comments: the person steering
+- Team folders
 - Things that will bite you
 
 ## The tools
@@ -19,7 +20,7 @@ Every tool in one table, how to read what they return, how comments steer a deck
 | `add_pictures` | the person's own pictures: opens a drop zone, then returns each one's `/m/<id>` and shows it to you |
 | `upload_media` | base64 in, `/m/<id>` out, for a file your program already holds, like the poster screenshot |
 | `generate_image` | slide art from Podium's own image model, in the deck's palette, straight into the project's media. Only for accounts the admin has turned it on for; `check: true` asks first |
-| `decks` | the library; with an `id`, the deck as JSON, and its open comments |
+| `decks` | the library, your own and your teams' folders (`"team/folder"`); with an `id`, the deck as JSON, and its open comments |
 
 And eyes on your own machine: `node lib/eyes.mjs "<url>"` takes the URL any of the others
 returned and gives you the pictures; Podium's own `look` takes the deck's `id`.
@@ -54,6 +55,25 @@ deck you built, so **read the comments before you rebuild a deck anybody has loo
 - Give every slide an authored `id`. A comment remembers the slide by its id, and a
   positional one (`s3`) moves when slides are reordered.
 - `publish` tells you how many threads are still open, in `comments`.
+
+## Team folders
+
+A team in Podium keeps its decks and pages in folders that everybody in it can open. A
+folder is a project, named `"team/folder"`: `decks()` lists your own decks and your teams',
+and `teams`, each team you are in with its folders and whether you may `publish` there.
+
+- **Publish into one** with `project: "growth-pod/q4-launch"` (in a program,
+  `new Deck({ project: "growth-pod/q4-launch", … })`). Only the team's Editors and Admins
+  can; a Viewer's or Commenter's agent reads, and a publish is refused with the reason.
+- **Somebody else may have changed it since you last did.** Read it first,
+  `decks({ id, project })`, and publish with `ifVersion`: a refusal means a teammate saved
+  in between, so read it again rather than writing over them.
+- **Pictures go in the folder:** `upload_media({ project: "team/folder" })`, and
+  `add_pictures({ project: "team/folder" })`. A picture from your own project is copied in
+  when you publish, and the warnings say so, because otherwise only you would see it.
+- **The history says who.** Every version records who saved it and whether it was their
+  agent, so the team sees "Asha's agent" or "Ravi" against each change.
+- Somebody removed from the team loses the folder at once, their agent with them.
 
 ## Things that will bite you
 

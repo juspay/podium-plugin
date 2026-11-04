@@ -971,4 +971,4 @@ if (invoked) {
 }
 
 /* What Podium's rendering service drives. Everything else in this file stays private. */
-export { Chrome, plan, lookAt, withTimeout, CALL_TIMEOUT, MAX_SLIDES };
+export { Chrome, openTab, plan, lookAt, withTimeout, CALL_TIMEOUT, MAX_SLIDES };

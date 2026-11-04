@@ -112,6 +112,8 @@ Podium's `look` shows you the slides but keeps no poster for you, so write the c
 file with eyes and attach it as above.
 
 `node lib/pdf.mjs <share-url> deck.pdf` is the third one, because almost every deck gets
-emailed in the end. It needs the SHARE link rather than the stage, which is behind the
+emailed in the end. Its owner (and a team's Editors) can also download it, as a PDF or a
+PowerPoint of the slides as pictures with the notes: **More** (⋯) → **Download** on the
+stage, or **More actions** on its details page. A share link has no download. It needs the SHARE link rather than the stage, which is behind the
 account: an unauthenticated capture of the stage produces a login page with no slides on
 it, and says so rather than writing a blank file.

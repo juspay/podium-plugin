@@ -2,7 +2,11 @@
   "mcpServers": {
     "podium": {
       "type": "http",
-      "url": "https://podium.breezelabs.app/mcp"
+      "url": "https://podium.breezelabs.app/mcp",
+      "headers": {
+        "X-Podium-Contract": "2",
+        "X-Podium-Space": "${PODIUM_SPACE:-}"
+      }
     }
   }
 }

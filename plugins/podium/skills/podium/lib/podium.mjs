@@ -127,8 +127,8 @@ export const slide = (props, blocks) => clean({ ...props, blocks });
 export class Deck {
   /** `brief` is what the person answered, what you assumed and why, kept with the deck,
       never on a share link. It used to be dropped here, so a program's brief never arrived. */
-  constructor({ id, project, title, subtitle, theme, poster, frame, brief }) {
-    Object.assign(this, { id, project, title, subtitle, theme, poster, frame, brief, slides: [] });
+  constructor({ id, project, space, title, subtitle, theme, poster, frame, brief }) {
+    Object.assign(this, { id, project, space, title, subtitle, theme, poster, frame, brief, slides: [] });
   }
   add(props, blocks) {
     this.slides.push(slide(props, blocks));
@@ -140,8 +140,8 @@ export class Deck {
    * `poster` silently went missing the first time it was added. Add the field here too.
    */
   toJSON() {
-    const { id, project, title, subtitle, theme, poster, frame, brief, slides } = this;
-    return clean({ id, project, title, subtitle, theme, poster, frame, brief, slides });
+    const { id, project, space, title, subtitle, theme, poster, frame, brief, slides } = this;
+    return clean({ id, project, space, title, subtitle, theme, poster, frame, brief, slides });
   }
   write(path) {
     writeFileSync(path, JSON.stringify(this, null, 1));
@@ -185,6 +185,18 @@ export function credentials() {
  */
 const BUILD_OUT = env('PODIUM_BUILD_OUT');
 
+/**
+ * Podium's contract this skill speaks (Podium's lib/server/compat.ts). Podium answers an older
+ * one too, with notices saying what to update.
+ */
+const CONTRACT = 2;
+
+/**
+ * One tool call. A deck that exists stays in its space; something new goes to the `space` it
+ * names (`new Deck({ space: "juspay" })`, or `space` in `args`), else `PODIUM_SPACE`, else
+ * Personal. Ask the person where a new deck goes; the result's `space` says where it went, and
+ * any `notices` say what to change.
+ */
 async function call(name, args) {
   if (BUILD_OUT) {
     throw new Error(
@@ -202,9 +214,15 @@ async function call(name, args) {
   }
 
   const payload = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } });
+  const pinned = env('PODIUM_SPACE');
   const res = await fetch(`${url}/mcp`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${token}`,
+      'x-podium-contract': String(CONTRACT),
+      ...(pinned ? { 'x-podium-space': pinned } : {})
+    },
     body: payload
   });
 
@@ -230,7 +248,11 @@ async function call(name, args) {
   }
   const out = body.result?.content?.[0]?.text ?? JSON.stringify(body);
   if (body.result?.isError) throw new Error(out);
-  try { return JSON.parse(out); } catch { return out; }
+  let parsed;
+  try { parsed = JSON.parse(out); } catch { return out; }
+  /* What Podium says an older call should change: printed, so whoever runs this reads it. */
+  for (const n of parsed?.notices ?? []) console.error(`  podium: ${n}`);
+  return parsed;
 }
 
 /**
@@ -258,7 +280,7 @@ export async function publish(deck, { visibility } = {}) {
     console.error(`  ${w.level.padEnd(5)} ${w.at}: ${w.says}${w.fix ? `\n        fix: ${w.fix}` : ''}`);
   }
   if (!result.warnings?.length) console.error('  no warnings');
-  console.error(`\n  look   ${result.look}\n  stage  ${result.stage}\n  share  ${result.share}\n`);
+  console.error(`\n  space  ${result.space ?? 'personal'}\n  look   ${result.look}\n  stage  ${result.stage}\n  share  ${result.share}\n`);
   return result;
 }
 
@@ -275,7 +297,7 @@ export async function publish(deck, { visibility } = {}) {
  * is the reason it costs nothing to run. Your machine already has one open.
  */
 export async function poster(path, deck) {
-  return upload(path, `${deck?.title ?? 'Deck'}: cover`, deck?.project);
+  return upload(path, `${deck?.title ?? 'Deck'}: cover`, deck?.project, deck?.space);
 }
 
 /**
@@ -284,9 +306,9 @@ export async function poster(path, deck) {
  * Pass the deck's own project. Without it the picture lands in whichever project the
  * account happens to list first, which works right up until you look for it.
  */
-export async function upload(path, alt, project) {
+export async function upload(path, alt, project, space) {
   if (BUILD_OUT) return call('upload_media');
-  const out = await call('upload_media', { data: readFileSync(path).toString('base64'), alt, project });
+  const out = await call('upload_media', { data: readFileSync(path).toString('base64'), alt, project, space });
   console.error(`uploaded ${path} → ${out.url} (${(out.bytes / 1024).toFixed(0)}KB, ${out.width}×${out.height})`);
   if (out.warning) console.error(`  ${path}: ${out.warning}`);
   return out.url;

@@ -51,6 +51,10 @@ minutes always run the same way, and the person's first deck depends on them:
 4. **Then build** (the program, looking at every slide) and run the critic and the judge
    before anybody else sees it.
 
+Where a new deck goes is the person's to say: when `decks()` lists an organization among
+`spaces` and PODIUM_SPACE is not set, ask "Personal or <organization>?" in the first batch,
+then pass it as `space` every time you publish (`references/tools.md`, *Where it goes*).
+
 Skip the directions (step 3) only when the look is already decided: a house style that
 binds, a reference they gave you (unless "just for inspiration"), the
 next instalment of a series. "Quick" is not a reason to skip it, a deck whose look nobody chose is the deck

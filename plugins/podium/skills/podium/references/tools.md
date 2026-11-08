@@ -6,6 +6,7 @@ Every tool in one table, how to read what they return, how comments steer a deck
 
 - The tools
 - Comments: the person steering
+- Where it publishes: one space
 - Team folders
 - Things that will bite you
 
@@ -56,11 +57,33 @@ deck you built, so **read the comments before you rebuild a deck anybody has loo
   positional one (`s3`) moves when slides are reordered.
 - `publish` tells you how many threads are still open, in `comments`.
 
+## Where it goes: Personal or an organization
+
+Everybody has **Personal**, and some people are in an **organization** as well (their
+company's, like Juspay). You reach all of them. Each is sealed: nothing is shared or copied
+between them. `decks()` lists every one as `spaces`, and marks each deck with its `space`.
+
+- **What exists stays where it is.** Publishing a deck again by its `id`, or into a project
+  you name, goes where that deck or project already is. Never pass `space` to move one.
+- **Something new needs a space:** a new deck with no project, or a new project. Pass
+  `space: "personal"` or the organization's (`new Deck({ space: "juspay", … })` in a program).
+- **Ask the person, once per new deck,** when `spaces` has an organization and PODIUM_SPACE
+  is not set: "Personal or Juspay?" in your first batch of questions, with no default. Put
+  the answer in the brief, and pass it as `space` every time you publish the deck.
+- **With no space** it goes to Personal and the answer carries a `notices` line saying so.
+  Read `notices` on every result: they are what Podium says to change in how you call it.
+- **PODIUM_SPACE** (`personal`, or an organization's address), set where Claude Code starts,
+  is the space when a call names none, so a work folder can default to the organization.
+- **A deck they want in the other space** is brought over as a new one, never moved, and
+  only when they ask: with a shell and a Podium API token, `node lib/bring.mjs <id> --to
+  juspay`; without, read it (`decks({ id, program: true })`) and publish it again with `space`.
+
 ## Team folders
 
-A team in Podium keeps its decks and pages in folders that everybody in it can open. A
-folder is a project, named `"team/folder"`: `decks()` lists your own decks and your teams',
-and `teams`, each team you are in with its folders and whether you may `publish` there.
+A team in Podium keeps its decks and pages in folders that everybody in it can open. Teams
+live in an organization, and you see every team you are in, in every space. A folder is a
+project, named `"team/folder"`: `decks()` lists your own decks and your teams', and `teams`,
+each team you are in with its folders and whether you may `publish` there.
 
 - **Publish into one** with `project: "growth-pod/q4-launch"` (in a program,
   `new Deck({ project: "growth-pod/q4-launch", … })`). Only the team's Editors and Admins

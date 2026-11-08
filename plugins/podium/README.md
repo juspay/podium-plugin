@@ -16,6 +16,13 @@ them into the Podium panel in the chat, or open the link it gives you.
 Connect the Podium connector from this plugin's **Connectors** tab and sign in with your
 Podium account.
 
+## Where it publishes
+
+Claude reaches your Personal space and every organization you are in on Podium. A deck you
+have stays where it is. For a new one, Claude asks you where it goes, Personal or your
+organization. To skip the question in a work folder, start Claude Code there with
+`PODIUM_SPACE=<your organization's address>`.
+
 ## Data
 
 Decks, their build programs and the pictures you add are stored in your Podium account at

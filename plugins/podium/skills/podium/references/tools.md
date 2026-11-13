@@ -88,6 +88,13 @@ each team you are in with its folders and whether you may `publish` there.
 - **Publish into one** with `project: "growth-pod/q4-launch"` (in a program,
   `new Deck({ project: "growth-pod/q4-launch", … })`). Only the team's Editors and Admins
   can; a Viewer's or Commenter's agent reads, and a publish is refused with the reason.
+- **A folder may sit inside another.** Its name for you is still `"team/folder"`, whatever it
+  is in, and stays the same when somebody moves it. `teams[].inside` maps each folder kept
+  inside another to the one it is in: read it when two folders share a name, or ask which is
+  meant. A folder you name that is not there is made at the top of the team; people put
+  folders inside one another, and move or copy a deck from one folder to another, in the
+  browser. A deck somebody moved is under its new folder's `"team/folder"`: `decks()` says
+  where.
 - **Somebody else may have changed it since you last did.** Read it first,
   `decks({ id, project })`, and publish with `ifVersion`: a refusal means a teammate saved
   in between, so read it again rather than writing over them.
